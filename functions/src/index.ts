@@ -188,3 +188,62 @@ export const calculateAnalytics = functions.pubsub.schedule('every 24 hours').on
   functions.logger.info("Analytics calculation complete.");
   return null;
 });
+
+/**
+ * HTTP Cloud Function to simulate a financial integration webhook.
+ * Receives a transaction ID and updates the payment status of a sales order.
+ */
+export const updatePaymentStatusWebhook = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
+  const { transactionId, salesOrderId } = req.body;
+
+  if (!transactionId || !salesOrderId) {
+    return res.status(400).send('Missing transactionId or salesOrderId');
+  }
+
+  try {
+    const salesOrderRef = db.collection('salesOrders_B2B').doc(salesOrderId);
+    await salesOrderRef.update({
+      status: 'paid', // Or 'financed', depending on the integration
+      transactionId: transactionId,
+      paymentDate: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    functions.logger.log(`Sales Order ${salesOrderId} updated to paid with transaction ID ${transactionId}`);
+    return res.status(200).json({ success: true, message: `Sales Order ${salesOrderId} payment status updated.` });
+  } catch (error) {
+    functions.logger.error(`Error updating sales order ${salesOrderId}:`, error);
+    return res.status(500).json({ success: false, message: 'Failed to update sales order payment status.', error: error.message });
+  }
+});
+
+/**
+ * HTTP Cloud Function to retrieve vehicle details by VIN for mobile app.
+ */
+export const getVehicleByVIN = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'GET') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
+  const vin = req.query.vin as string;
+
+  if (!vin) {
+    return res.status(400).send('Missing VIN parameter');
+  }
+
+  try {
+    const vehicleDoc = await db.collection('vehicles').doc(vin).get();
+
+    if (!vehicleDoc.exists) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found.' });
+    }
+
+    return res.status(200).json({ success: true, vehicle: vehicleDoc.data() });
+  } catch (error) {
+    functions.logger.error(`Error fetching vehicle by VIN ${vin}:`, error);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve vehicle details.', error: error.message });
+  }
+});
