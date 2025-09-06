@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check for manufacturer admin role
+    function isManufacturerAdmin() {
+      return request.auth.token.role == 'manufacturer_admin';
+    }
+
+    // Helper function to check if the user belongs to the dealership of the document
+    function isOwnDealership(dealershipId) {
+      return request.auth.token.dealershipId == dealershipId;
+    }
+
+    // Users: Can read their own user document. Admins can read all.
+    match /users/{userId} {
+      allow read: if isManufacturerAdmin() || request.auth.uid == userId;
+      allow write: if request.auth.uid == userId; // Users can update their own info
+    }
+
+    // Dealerships: Manufacturer admins can CRUD. Dealer managers can read/update their own.
+    match /dealerships/{dealershipId} {
+      allow read: if isManufacturerAdmin() || isOwnDealership(dealershipId);
+      allow create, update: if isManufacturerAdmin();
+      // Allow dealer_manager to update their own dealership info
+      allow update: if isOwnDealership(dealershipId) && request.auth.token.role == 'dealer_manager';
+      allow delete: if isManufacturerAdmin();
+    }
+
+    // Vehicles, Customers, B2B Orders: Data is segregated by dealershipId
+    match /vehicles/{vin} {
+      allow read: if isManufacturerAdmin() || isOwnDealership(resource.data.dealershipId);
+      allow create, update: if isManufacturerAdmin(); // Only manufacturer can create/update vehicle master data
+    }
+
+    match /customers/{customerId} {
+      allow read: if isManufacturerAdmin() || isOwnDealership(resource.data.dealershipId);
+      allow create, update, delete: if isOwnDealership(resource.data.dealershipId);
+    }
+
+    match /salesOrders_B2B/{orderId} {
+      allow read: if isManufacturerAdmin() || isOwnDealership(resource.data.dealershipId);
+      allow create, update: if isOwnDealership(resource.data.dealershipId);
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
