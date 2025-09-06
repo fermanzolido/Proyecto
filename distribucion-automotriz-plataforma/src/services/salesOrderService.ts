@@ -8,7 +8,7 @@ import {
   where, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { SalesOrderB2B } from '../models/salesOrderB2B';
+import type { SalesOrderB2B } from '../models/salesOrderB2B';
 
 const ordersCollection = collection(db, 'salesOrders_B2B');
 

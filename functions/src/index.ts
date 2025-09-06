@@ -13,7 +13,7 @@ const storage = admin.storage();
  */
 export const onDealershipCreate = functions.firestore
   .document("dealerships/{dealershipId}")
-  .onCreate(async (snap, context) => {
+  .onCreate(async (snap: functions.firestore.DocumentSnapshot, context: functions.EventContext) => {
     const dealershipId = context.params.dealershipId;
     const bucket = storage.bucket();
     const folderPath = `dealership_documents/${dealershipId}/`;
@@ -24,7 +24,7 @@ export const onDealershipCreate = functions.firestore
     try {
       await file.save(`Folder for dealership ${dealershipId}`);
       functions.logger.log(`Successfully created folder for dealership ${dealershipId}`);
-    } catch (error) {
+    } catch (error: any) {
       functions.logger.error(`Failed to create folder for dealership ${dealershipId}`, error);
     }
   });
@@ -36,7 +36,7 @@ export const onDealershipCreate = functions.firestore
  */
 export const onVehicleDelivered = functions.firestore
   .document("vehicles/{vin}")
-  .onUpdate(async (change, context) => {
+  .onUpdate(async (change: functions.Change<functions.firestore.DocumentSnapshot>, context: functions.EventContext) => {
     const vehicleDataAfter = change.after.data();
     const vehicleDataBefore = change.before.data();
     const vin = context.params.vin;
@@ -93,7 +93,7 @@ export const onVehicleDelivered = functions.firestore
  * Scheduled function to calculate and aggregate analytics data.
  * Runs every 24 hours.
  */
-export const calculateAnalytics = functions.pubsub.schedule('every 24 hours').onRun(async (context) => {
+export const calculateAnalytics = functions.pubsub.schedule('every 24 hours').onRun(async (context: functions.EventContext) => {
   functions.logger.info("Starting analytics calculation...");
 
   const vehiclesSnapshot = await db.collection("vehicles").get();
@@ -139,7 +139,6 @@ export const calculateAnalytics = functions.pubsub.schedule('every 24 hours').on
 
   // --- Dealership Analytics ---
   for (const dealership of allDealerships) {
-    const dealershipVehicles = allVehicles.filter(v => v.dealershipId === dealership.id);
     const dealershipCustomers = allCustomers.filter(c => c.dealershipId === dealership.id);
 
     const monthlySales: { [key: string]: number } = {};
@@ -193,7 +192,7 @@ export const calculateAnalytics = functions.pubsub.schedule('every 24 hours').on
  * HTTP Cloud Function to simulate a financial integration webhook.
  * Receives a transaction ID and updates the payment status of a sales order.
  */
-export const updatePaymentStatusWebhook = functions.https.onRequest(async (req, res) => {
+export const updatePaymentStatusWebhook = functions.https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
@@ -214,7 +213,7 @@ export const updatePaymentStatusWebhook = functions.https.onRequest(async (req, 
 
     functions.logger.log(`Sales Order ${salesOrderId} updated to paid with transaction ID ${transactionId}`);
     return res.status(200).json({ success: true, message: `Sales Order ${salesOrderId} payment status updated.` });
-  } catch (error) {
+  } catch (error: any) {
     functions.logger.error(`Error updating sales order ${salesOrderId}:`, error);
     return res.status(500).json({ success: false, message: 'Failed to update sales order payment status.', error: error.message });
   }
@@ -223,7 +222,7 @@ export const updatePaymentStatusWebhook = functions.https.onRequest(async (req, 
 /**
  * HTTP Cloud Function to retrieve vehicle details by VIN for mobile app.
  */
-export const getVehicleByVIN = functions.https.onRequest(async (req, res) => {
+export const getVehicleByVIN = functions.https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
   if (req.method !== 'GET') {
     return res.status(405).send('Method Not Allowed');
   }
@@ -242,7 +241,7 @@ export const getVehicleByVIN = functions.https.onRequest(async (req, res) => {
     }
 
     return res.status(200).json({ success: true, vehicle: vehicleDoc.data() });
-  } catch (error) {
+  } catch (error: any) {
     functions.logger.error(`Error fetching vehicle by VIN ${vin}:`, error);
     return res.status(500).json({ success: false, message: 'Failed to retrieve vehicle details.', error: error.message });
   }
